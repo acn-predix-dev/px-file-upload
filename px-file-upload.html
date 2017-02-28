@@ -56,9 +56,9 @@ Custom property | Description | Default
                 <td>{{_readableFileSize(file.size)}}</td>
                 <td>{{file.type}}</td>
                 <template is="dom-if" if="{{showStatus}}">
-                  <td>
+                  <td style="height: 40px; width: 40px">
                     <template is="dom-if" if={{file.processing}}>
-                      <span style="height: 30px; width: 30px">
+                      <span>
                         <px-percent-circle val="{{file.progress}}" max="100" thickness="100"></px-percent-circle>
                       </span>
                     </template>
