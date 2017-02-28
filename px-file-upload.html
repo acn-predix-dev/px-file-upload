@@ -5,6 +5,7 @@
 -->
 <link rel="import" href="../polymer/polymer.html"/>
 <link rel="import" href="../px-polymer-font-awesome/polymer-font-awesome.html"/>
+<link rel="import" href="file-upload.html">
 
 <!--
 File upload component. Allows user to select one or more files from filesystem by invoking the standard dialog, or by dragging and dropping files onto the target area, if supported by their browser.
@@ -35,22 +36,49 @@ Custom property | Description | Default
     <style include="px-file-upload-styles"></style>
     <div id="dropZone" class="fieldset u-p-">
       <span id="dndInstructions" hidden$="{{!_isAdvancedUpload}}"><iron-icon icon="fa:fa-cloud-upload"></iron-icon>&nbsp;[[message]]<br/><br/></span>
-      <template is="dom-if" if="{{multiple}}">
+      <!-- <template is="dom-repeat" items="{{files}}" as="file">
+        <file-upload file="{{file}}"></file-upload>
+      </template> -->
+      <template id="table" is="dom-if" if="{{multiple}}">
         <table class="table table--small table--rows hidden" id="fileTable">
-          <tr>
-            <th>Name</th>
-            <th>Size</th>
-            <th>Type</th>
-            <th></th>
-          </tr>
-          <template is="dom-repeat" items="{{files}}">
+          <thead>
             <tr>
-              <td>{{item.name}}</td>
-              <td>{{_readableFileSize(item.size)}}</td>
-              <td>{{item.type}}</td>
-              <td><iron-icon id="icon{{index}}" icon="fa:fa-minus-circle" on-click="_removeFile"></iron-icon></td>
+              <th>Name</th>
+              <th>Size</th>
+              <th>Type</th>
+              <template is="dom-if" if="{{showStatus}}">
+                <!-- <th></th> -->
+                <th></th>
+              </template>
+              <th></th>
             </tr>
-          </template>
+          </thead>
+          <tbody>
+            <template id="repeat" is="dom-repeat" items="{{files}}" as="file">
+              <!-- <file-upload file="{{file}}"></file-upload> -->
+              <tr>
+                <td>{{file.name}}</td>
+                <td>{{_readableFileSize(file.size)}}</td>
+                <td>{{file.type}}</td>
+                <template is="dom-if" if="{{showStatus}}">
+                  <!-- <td>{{file.progress}}</td> -->
+                  <td>
+                    <template is="dom-if" if={{file.error}}>
+                      <px-tooltip for="statusIcon{{index}}" delay="50" tooltip-message="{{file.message}}" orientation="auto" tooltip-style="dark"></px-tooltip>
+                    </template>
+                    <!-- <span>
+                      <i class$="{{file.statusIcon}}" style$="color: {{file.statusColor}}" aria-hidden="true"></i>
+                    </span> -->
+
+                    <iron-icon id="statusIcon{{index}}" icon="{{file.statusIcon}}" style="color: {{file.statusColor}}"></iron-icon>
+                  </td>
+                </template>
+                <td>
+                  <iron-icon id="removeIcon{{index}}" icon="fa:fa-minus-circle" on-click="_removeFile"></iron-icon>
+                </td>
+              </tr>
+            </template>
+          </tbody>
         </table>
       </template>
       <label id="fileButton" class="btn">Choose File
@@ -59,7 +87,6 @@ Custom property | Description | Default
       <span id="fileList">No file selected</span>
       <span id="validation" class="hidden"></span>
       </template>
-
     </div>
   </template>
 </dom-module>
@@ -133,6 +160,21 @@ Custom property | Description | Default
           var div = document.createElement('div');
           return (('draggable' in div) || ('ondragstart' in div && 'ondrop' in div)) && 'FormData' in window && 'FileReader' in window;
         }
+      },
+
+      fileConfig: {
+        type: Array,
+        value: function() {return [];}
+      },
+
+      target: {
+        type: String,
+        value: ""
+      },
+
+      showStatus: {
+        type: Boolean,
+        value: false
       }
     },
 
@@ -158,6 +200,7 @@ Custom property | Description | Default
           e.preventDefault();
           e.stopPropagation();
           this.toggleClass("hover",false,dropZone);
+
           // Single file mode
           if(!this.multiple) {
             // Multiple files dropped, only one allowed
@@ -264,6 +307,10 @@ Custom property | Description | Default
         }
       }
 
+      if (this.fileConfig != null && this.fileConfig.length > 0) {
+        this._processFileByConfig();
+      }
+
       this.toggleClass('hidden',true,this.$$('#validation'));
       this._notifyFilesChanged();
     },
@@ -352,6 +399,133 @@ Custom property | Description | Default
       */
     _notifyFilesChanged: function() {
       this.fire('px-file-upload-files-changed');
+    },
+
+    _notifyFileUploadCompleted: function() {
+      this.fire('px-file-upload-files-completed')
+    },
+
+    _processFileByConfig: function() {
+      for (i = 0; i < this.files.length; i++) {
+        var file = this.files[i];
+        var isValid = false;
+        var config = null;
+        for (j = 0; j < this.fileConfig.length; j++) {
+          if (!isValid) {
+            config = this.fileConfig[j];
+            if (config.fileExt != null) {
+              isValid = this._validateFileExt(config.fileExt, file.name.toLowerCase());
+            }
+
+            if (isValid && config.keyword != null) {
+              isValid = this._validateFileKeyword(config.keyword, file.name.toLowerCase());
+            }
+          }
+        }
+
+        if (isValid) {
+          file.status = "PROCESSING";
+          this._uploadFile(file, config.url, config.formDataName, i);
+        }
+        else {
+          file.status = "FAILED";
+          file.error = true;
+          file.message = "Invalid data file."
+        }
+
+        file.statusIcon = this._getStatusIcon(file.status);
+        file.statusColor = this._getStatusColor(file.status);
+        this._updateFiles(file);
+      }
+    },
+
+    _validateFileExt: function(fileExt, filename) {
+      return fileExt.indexOf(filename.match(/\.[^\.]*$/)[0]) > -1;
+    },
+
+    _validateFileKeyword: function(keyword, filename) {
+      return filename.toLowerCase().indexOf(keyword.toLowerCase()) > -1;
+    },
+
+    _uploadFile: function(file, url, formDataName, index) {
+      var last;
+      var ini = Date.now();
+
+      var xhr = new XMLHttpRequest();
+      var formData = new FormData();
+      formData.append(formDataName, file);
+      formData.append("site-id", "test");
+      formData.append("name", file.name);
+
+      var updateProgress = function(e) {
+         if (e.lengthComputable) {
+            file.progress = Math.ceil((e.loaded / e.total) * 100);
+            console.log("completed: " + file.progress);
+            this._updateFiles(file);
+          }
+       }.bind(this);
+
+      xhr.upload.addEventListener("progress", updateProgress, false);
+
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4) {
+
+          console.log(xhr.status);
+          if (xhr.status == 200) {
+            file.status = "SUCCESS";
+          }
+
+          if (xhr.status == 400 || xhr.status == 500 || xhr.status == 0) {
+            file.status = "FAILED";
+            file.error = true;
+            file.message = xhr.responseText;
+          }
+
+          file.statusIcon = this._getStatusIcon(file.status);
+          file.statusColor = this._getStatusColor(file.status);
+          this._updateFiles(file);
+          this._notifyFileUploadCompleted();
+          // file.complete = true;
+        }
+       }.bind(this);
+
+       xhr.open("post", url, true);
+       xhr.send(formData);
+
+
+     },
+
+     _updateFiles: function(file) {
+      var p = 'files.' + this.files.indexOf(file) + '.';
+      for (var i in file) {
+        if (file.hasOwnProperty(i)) {
+          this.notifyPath(p + i, file[i]);
+        }
+      }
+    },
+
+    _getStatusIcon: function(status) {
+      var statusIcon = null;
+      if (status == "SUCCESS") {
+        statusIcon = "fa:fa-check-circle";
+      } else if (status == "PROCESSING") {
+        statusIcon = "fa:fa-circle-o-notch";
+      } else if (status == "FAILED") {
+        statusIcon = "fa:fa-times-circle";
+      }
+      return statusIcon;
+    },
+
+    _getStatusColor: function(status) {
+      var statusColor = null;
+      if (status == "SUCCESS") {
+        statusColor = "green";
+      } else if (status == "PROCESSING") {
+        statusColor = "orange";
+      } else if (status == "FAILED") {
+        statusColor = "red";
+      }
+      return statusColor;
     }
 
   });
