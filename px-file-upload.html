@@ -161,17 +161,33 @@ Custom property | Description | Default
           return (('draggable' in div) || ('ondragstart' in div && 'ondrop' in div)) && 'FormData' in window && 'FileReader' in window;
         }
       },
-
+      /**
+       * User can give a list of file configuration which can have the ff. fields:
+       * keyword, fileExt & url
+       * @property fileConfig
+       * @type Object
+       * @default {}
+       */
       fileConfig: {
         type: Array,
         value: function() {return [];}
       },
-
+      /**
+       * The URL to be called
+       * @property target
+       * @type String
+       * @default ""
+       */
       target: {
         type: String,
         value: ""
       },
-
+      /**
+       * Determines whether to display the status column or not
+       * @property showStatus
+       * @type Boolean
+       * @default false
+       */
       showStatus: {
         type: Boolean,
         value: false
@@ -457,7 +473,6 @@ Custom property | Description | Default
       var updateProgress = function(e) {
          if (e.lengthComputable) {
             file.progress = Math.ceil((e.loaded / e.total) * 100 / 2);
-            console.log("percentage: " + file.progress);
             this._updateFiles(file);
           }
        }.bind(this);
@@ -467,7 +482,6 @@ Custom property | Description | Default
       xhr.onreadystatechange = function() {
         if (xhr.readyState == 4) {
 
-          console.log("completed.");
           if (xhr.status == 200) {
             file.success = "SUCCESS";
           }
@@ -480,6 +494,7 @@ Custom property | Description | Default
           file.processing = false;
           this._updateFiles(file);
           this._notifyFileUploadCompleted();
+          console.log("Done uploading file: " + file.name);
         }
        }.bind(this);
 
@@ -494,39 +509,6 @@ Custom property | Description | Default
           this.notifyPath(p + i, file[i]);
         }
       }
-    },
-
-    _getStatusIcon: function(status) {
-      var statusIcon = null;
-      if (status == "SUCCESS") {
-        statusIcon = "fa:fa-check-circle";
-      } else if (status == "PROCESSING") {
-        statusIcon = "fa:fa-circle-o-notch";
-      } else if (status == "FAILED") {
-        statusIcon = "fa:fa-times-circle";
-      }
-      return statusIcon;
-    },
-
-    _getStatusColor: function(status) {
-      var statusColor = null;
-      if (status == "SUCCESS") {
-        statusColor = "green";
-      } else if (status == "PROCESSING") {
-        statusColor = "orange";
-      } else if (status == "FAILED") {
-        statusColor = "red";
-      }
-      return statusColor;
-    },
-
-    isInProgress: function(file) {
-      return file.status == "PROCESSING";
-    },
-
-    isSuccessful: function(file) {
-      return file.status == "SUCCESS";
     }
-
   });
 </script>
