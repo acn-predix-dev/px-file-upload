@@ -5,7 +5,7 @@
 -->
 <link rel="import" href="../polymer/polymer.html"/>
 <link rel="import" href="../px-polymer-font-awesome/polymer-font-awesome.html"/>
-<link rel="import" href="file-upload.html">
+<link rel="import" href="../px-percent-circle/px-percent-circle.html"/>
 
 <!--
 File upload component. Allows user to select one or more files from filesystem by invoking the standard dialog, or by dragging and dropping files onto the target area, if supported by their browser.
@@ -36,9 +36,6 @@ Custom property | Description | Default
     <style include="px-file-upload-styles"></style>
     <div id="dropZone" class="fieldset u-p-">
       <span id="dndInstructions" hidden$="{{!_isAdvancedUpload}}"><iron-icon icon="fa:fa-cloud-upload"></iron-icon>&nbsp;[[message]]<br/><br/></span>
-      <!-- <template is="dom-repeat" items="{{files}}" as="file">
-        <file-upload file="{{file}}"></file-upload>
-      </template> -->
       <template id="table" is="dom-if" if="{{multiple}}">
         <table class="table table--small table--rows hidden" id="fileTable">
           <thead>
@@ -47,7 +44,6 @@ Custom property | Description | Default
               <th>Size</th>
               <th>Type</th>
               <template is="dom-if" if="{{showStatus}}">
-                <!-- <th></th> -->
                 <th></th>
               </template>
               <th></th>
@@ -55,26 +51,30 @@ Custom property | Description | Default
           </thead>
           <tbody>
             <template id="repeat" is="dom-repeat" items="{{files}}" as="file">
-              <!-- <file-upload file="{{file}}"></file-upload> -->
               <tr>
                 <td>{{file.name}}</td>
                 <td>{{_readableFileSize(file.size)}}</td>
                 <td>{{file.type}}</td>
                 <template is="dom-if" if="{{showStatus}}">
-                  <!-- <td>{{file.progress}}</td> -->
                   <td>
-                    <template is="dom-if" if={{file.error}}>
-                      <px-tooltip for="statusIcon{{index}}" delay="50" tooltip-message="{{file.message}}" orientation="auto" tooltip-style="dark"></px-tooltip>
+                    <template is="dom-if" if={{file.processing}}>
+                      <span style="height: 30px; width: 30px">
+                        <px-percent-circle val="{{file.progress}}" max="100" thickness="100"></px-percent-circle>
+                      </span>
                     </template>
-                    <!-- <span>
-                      <i class$="{{file.statusIcon}}" style$="color: {{file.statusColor}}" aria-hidden="true"></i>
-                    </span> -->
-
-                    <iron-icon id="statusIcon{{index}}" icon="{{file.statusIcon}}" style="color: {{file.statusColor}}"></iron-icon>
+                    <template is="dom-if" if={{file.failed}}>
+                      <px-tooltip for="statusIcon{{index}}" delay="50" tooltip-message="{{file.message}}" orientation="auto" tooltip-style="dark"></px-tooltip>
+                      <iron-icon id="statusIcon{{index}}" icon="fa:fa-times-circle" style="color: red"></iron-icon>
+                    </template>
+                    <template is="dom-if" if={{file.success}}>
+                      <iron-icon id="statusIcon{{index}}" icon="fa:fa-check-circle" style="color: green"></iron-icon>
+                    </template>
                   </td>
                 </template>
                 <td>
-                  <iron-icon id="removeIcon{{index}}" icon="fa:fa-minus-circle" on-click="_removeFile"></iron-icon>
+                  <template is="dom-if" if={{!file.processing}}>
+                    <iron-icon id="removeIcon{{index}}" icon="fa:fa-minus-circle" on-click="_removeFile"></iron-icon>
+                  </template>
                 </td>
               </tr>
             </template>
@@ -424,17 +424,14 @@ Custom property | Description | Default
         }
 
         if (isValid) {
-          file.status = "PROCESSING";
+          file.processing = true;
           this._uploadFile(file, config.url, config.formDataName, i);
         }
         else {
-          file.status = "FAILED";
-          file.error = true;
+          file.failed = true;
           file.message = "Invalid data file."
         }
 
-        file.statusIcon = this._getStatusIcon(file.status);
-        file.statusColor = this._getStatusColor(file.status);
         this._updateFiles(file);
       }
     },
@@ -459,8 +456,8 @@ Custom property | Description | Default
 
       var updateProgress = function(e) {
          if (e.lengthComputable) {
-            file.progress = Math.ceil((e.loaded / e.total) * 100);
-            console.log("completed: " + file.progress);
+            file.progress = Math.ceil((e.loaded / e.total) * 100 / 2);
+            console.log("percentage: " + file.progress);
             this._updateFiles(file);
           }
        }.bind(this);
@@ -470,29 +467,24 @@ Custom property | Description | Default
       xhr.onreadystatechange = function() {
         if (xhr.readyState == 4) {
 
-          console.log(xhr.status);
+          console.log("completed.");
           if (xhr.status == 200) {
-            file.status = "SUCCESS";
+            file.success = "SUCCESS";
           }
 
           if (xhr.status == 400 || xhr.status == 500 || xhr.status == 0) {
-            file.status = "FAILED";
-            file.error = true;
+            file.failed = true;
             file.message = xhr.responseText;
           }
 
-          file.statusIcon = this._getStatusIcon(file.status);
-          file.statusColor = this._getStatusColor(file.status);
+          file.processing = false;
           this._updateFiles(file);
           this._notifyFileUploadCompleted();
-          // file.complete = true;
         }
        }.bind(this);
 
        xhr.open("post", url, true);
        xhr.send(formData);
-
-
      },
 
      _updateFiles: function(file) {
@@ -526,6 +518,14 @@ Custom property | Description | Default
         statusColor = "red";
       }
       return statusColor;
+    },
+
+    isInProgress: function(file) {
+      return file.status == "PROCESSING";
+    },
+
+    isSuccessful: function(file) {
+      return file.status == "SUCCESS";
     }
 
   });
