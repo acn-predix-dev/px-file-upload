@@ -37,50 +37,54 @@ Custom property | Description | Default
     <div id="dropZone" class="fieldset u-p-">
       <span id="dndInstructions" hidden$="{{!_isAdvancedUpload}}"><iron-icon icon="fa:fa-cloud-upload"></iron-icon>&nbsp;[[message]]<br/><br/></span>
       <template id="table" is="dom-if" if="{{multiple}}">
-        <table class="table table--small table--rows hidden" id="fileTable">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Size</th>
-              <th>Type</th>
-              <template is="dom-if" if="{{showStatus}}">
-                <th></th>
-              </template>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <template id="repeat" is="dom-repeat" items="{{files}}" as="file">
+        <div class="hidden" style="overflow-y: auto; height: 250px" id="fileTable">
+          <table class="table table--small table--rows">
+            <thead>
               <tr>
-                <td>{{file.name}}</td>
-                <td>{{_readableFileSize(file.size)}}</td>
-                <td>{{file.type}}</td>
+                <th>Name</th>
+                <th>Size</th>
+                <th>Type</th>
                 <template is="dom-if" if="{{showStatus}}">
-                  <td style="height: 40px; width: 40px">
-                    <template is="dom-if" if={{file.processing}}>
-                      <span>
-                        <px-percent-circle val="{{file.progress}}" max="100" thickness="100"></px-percent-circle>
-                      </span>
-                    </template>
-                    <template is="dom-if" if={{file.failed}}>
-                      <px-tooltip for="statusIcon{{index}}" delay="50" tooltip-message="{{file.message}}" orientation="auto" tooltip-style="dark"></px-tooltip>
-                      <iron-icon id="statusIcon{{index}}" icon="fa:fa-times-circle" style="color: red"></iron-icon>
-                    </template>
-                    <template is="dom-if" if={{file.success}}>
-                      <iron-icon id="statusIcon{{index}}" icon="fa:fa-check-circle" style="color: green"></iron-icon>
+                  <th></th>
+                </template>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <template id="repeat" is="dom-repeat" items="{{files}}" as="file">
+                <tr>
+                  <td>{{file.name}}</td>
+                  <td>{{_readableFileSize(file.size)}}</td>
+                  <td>{{file.type}}</td>
+                  <template is="dom-if" if="{{showStatus}}">
+                    <td style="height: 40px; width: 40px">
+                      <template is="dom-if" if={{file.processing}}>
+                        <span>
+                          <px-percent-circle val="{{file.progress}}" max="100" thickness="100"></px-percent-circle>
+                        </span>
+                      </template>
+                      <template is="dom-if" if={{file.failed}}>
+                        <px-tooltip for="statusIcon{{index}}" delay="50" tooltip-message="{{file.message}}" orientation="auto" tooltip-style="dark"></px-tooltip>
+                        <iron-icon id="statusIcon{{index}}" icon="fa:fa-times-circle" style="color: red"></iron-icon>
+                      </template>
+                      <template is="dom-if" if={{file.success}}>
+                        <iron-icon id="statusIcon{{index}}" icon="fa:fa-check-circle" style="color: green"></iron-icon>
+                      </template>
+                    </td>
+                  </template>
+                  <td>
+                    <template is="dom-if" if={{!file.processing}}>
+                      <iron-icon id="{{file.id}}" icon="fa:fa-minus-circle" on-click="_removeFile"></iron-icon>
                     </template>
                   </td>
-                </template>
-                <td>
-                  <template is="dom-if" if={{!file.processing}}>
-                    <iron-icon id="removeIcon{{index}}" icon="fa:fa-minus-circle" on-click="_removeFile"></iron-icon>
-                  </template>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
       </template>
+      <br>
       <label id="fileButton" class="btn">Choose File
         <input id="fileInput" type="file" on-change="_fileChange" multiple={{multiple}} accept={{accept}} hidden></input>
       </label>
@@ -191,6 +195,11 @@ Custom property | Description | Default
       showStatus: {
         type: Boolean,
         value: false
+      },
+
+      fileCtr: {
+        type: Number,
+        value: 0
       }
     },
 
@@ -302,7 +311,15 @@ Custom property | Description | Default
      * @param event
      */
     _fileChange: function(e) {
-      this.files = this._toArray(e.target.files);
+      var currentFiles = this._toArray(e.target.files);
+      if (currentFiles != null && currentFiles.length > 0) {
+        for (var i = 0; i < currentFiles.length; i++) {
+          var currentFile = currentFiles[i];
+          currentFile.id = "file" + this.fileCtr;
+          this.fileCtr++;
+          this.push('files', currentFile);
+        }
+      }
 
       if (this.files.length === 0) {
         this.$$('#fileList').innerHTML = 'No file selected';
@@ -341,13 +358,22 @@ Custom property | Description | Default
      * @param event
      */
     _removeFile: function(e) {
-      if(!this.disabled) {
-        this.splice("files",e.target.id.substring(4),1);
-        if(this.multiple && this.files.length === 0){
-          this.toggleClass('hidden',true,this.$$('#fileTable'));
-          this.toggleClass('hidden',false,this.$$('#fileList'));
+      var removedFile = false;
+      for (var i = 0; i < this.files.length; i++) {
+        if (!removedFile) {
+          var file = this.files[i];
+          if (file.id == e.target.id) {
+            if(!this.disabled) {
+              this.splice("files",i,1);
+              removedFile = true;
+              if(this.multiple && this.files.length === 0){
+                this.toggleClass('hidden',true,this.$$('#fileTable'));
+                this.toggleClass('hidden',false,this.$$('#fileList'));
+              }
+              this.$.fileInput.value = "";
+            }
+          }
         }
-        this.$.fileInput.value = "";
       }
     },
 
@@ -424,31 +450,34 @@ Custom property | Description | Default
     _processFileByConfig: function() {
       for (i = 0; i < this.files.length; i++) {
         var file = this.files[i];
-        var isValid = false;
-        var config = null;
-        for (j = 0; j < this.fileConfig.length; j++) {
-          if (!isValid) {
-            config = this.fileConfig[j];
-            if (config.fileExt != null) {
-              isValid = this._validateFileExt(config.fileExt, file.name.toLowerCase());
-            }
+        if (!file.completed) {
+          var isValid = false;
+          var config = null;
+          for (j = 0; j < this.fileConfig.length; j++) {
+            if (!isValid) {
+              config = this.fileConfig[j];
+              if (config.fileExt != null) {
+                isValid = this._validateFileExt(config.fileExt, file.name.toLowerCase());
+              }
 
-            if (isValid && config.keyword != null) {
-              isValid = this._validateFileKeyword(config.keyword, file.name.toLowerCase());
+              if (isValid && config.keyword != null) {
+                isValid = this._validateFileKeyword(config.keyword, file.name.toLowerCase());
+              }
             }
           }
-        }
 
-        if (isValid) {
-          file.processing = true;
-          this._uploadFile(file, config.url, config.formDataName, i);
-        }
-        else {
-          file.failed = true;
-          file.message = "Invalid data file."
-        }
+          if (isValid) {
+            file.processing = true;
+            this._uploadFile(file, config.url, config.formDataName, i);
+          }
+          else {
+            file.failed = true;
+            file.message = "Invalid data file."
+            file.completed = true;
+          }
 
-        this._updateFiles(file);
+          this._updateFiles(file);
+        }
       }
     },
 
@@ -483,7 +512,7 @@ Custom property | Description | Default
         if (xhr.readyState == 4) {
 
           if (xhr.status == 200) {
-            file.success = "SUCCESS";
+            file.success = true;
           }
 
           if (xhr.status == 400 || xhr.status == 500 || xhr.status == 0) {
@@ -492,6 +521,7 @@ Custom property | Description | Default
           }
 
           file.processing = false;
+          file.completed = true;
           this._updateFiles(file);
           this._notifyFileUploadCompleted();
           console.log("Done uploading file: " + file.name);
