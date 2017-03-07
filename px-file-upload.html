@@ -444,7 +444,7 @@ Custom property | Description | Default
     },
 
     _notifyFileUploadCompleted: function() {
-      this.fire('px-file-upload-files-completed')
+      this.fire('px-file-upload-file-completed')
     },
 
     _processFileByConfig: function() {
@@ -501,8 +501,10 @@ Custom property | Description | Default
 
       var updateProgress = function(e) {
          if (e.lengthComputable) {
-            file.progress = Math.ceil((e.loaded / e.total) * 100 / 2);
-            this._updateFiles(file);
+            file.progress = Math.ceil((e.loaded / e.total) * 100) - 25;
+            if (file.progress > 0) {
+              this._updateFiles(file);
+            }
           }
        }.bind(this);
 
