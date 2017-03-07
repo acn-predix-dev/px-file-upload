@@ -501,9 +501,10 @@ Custom property | Description | Default
 
       var updateProgress = function(e) {
          if (e.lengthComputable) {
-            file.progress = Math.ceil((e.loaded / e.total) * 100 / 2);
-            console.log(file.progress);
-            this._updateFiles(file);
+            file.progress = Math.ceil((e.loaded / e.total) * 100) - 25;
+            if (file.progress > 0) {
+              this._updateFiles(file);
+            }
           }
        }.bind(this);
 
