@@ -65,10 +65,12 @@ Custom property | Description | Default
                       </template>
                       <template is="dom-if" if={{file.failed}}>
                         <px-tooltip for="statusIcon{{index}}" delay="50" tooltip-message="{{file.message}}" orientation="auto" tooltip-style="dark"></px-tooltip>
-                        <iron-icon id="statusIcon{{index}}" icon="fa:fa-times-circle" style="color: red"></iron-icon>
+                        <!-- <iron-icon id="statusIcon{{index}}" icon="fa:fa-times-circle" style="color: red"></iron-icon> -->
+                        <iron-icon id="statusIcon{{index}}" icon="fa:fa-times-circle"></iron-icon>
                       </template>
                       <template is="dom-if" if={{file.success}}>
-                        <iron-icon id="statusIcon{{index}}" icon="fa:fa-check-circle" style="color: green"></iron-icon>
+                        <!-- <iron-icon id="statusIcon{{index}}" icon="fa:fa-check-circle" style="color: green"></iron-icon> -->
+                        <iron-icon id="statusIcon{{index}}" icon="fa:fa-check-circle"></iron-icon>
                       </template>
                     </td>
                   </template>
@@ -517,9 +519,15 @@ Custom property | Description | Default
             file.success = true;
           }
 
-          if (xhr.status == 400 || xhr.status == 500 || xhr.status == 0) {
+          if (xhr.status == 400 || xhr.status == 500) {
             file.failed = true;
             file.message = xhr.responseText;
+            //console.log(xhr);
+          }
+
+          if (xhr.status == 0) {
+            file.failed = true;
+            file.message = "Server Unavailable."
           }
 
           file.processing = false;
