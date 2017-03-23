@@ -497,8 +497,12 @@ Custom property | Description | Default
 
       var xhr = new XMLHttpRequest();
       var formData = new FormData();
+
+      var userDetails = document.querySelector("px-login");
+      var tenant = userDetails.userInfo.tenant;
+
       formData.append(formDataName, file);
-      formData.append("site-id", "test");
+      formData.append("site-id", tenant);
       formData.append("name", file.name);
 
       var updateProgress = function(e) {
