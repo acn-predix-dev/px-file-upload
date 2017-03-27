@@ -503,6 +503,7 @@ Custom property | Description | Default
 
       formData.append(formDataName, file);
       formData.append("site-id", tenant);
+      formData.append("username", userDetails.userInfo.user_name);
       formData.append("name", file.name);
 
       var updateProgress = function(e) {
@@ -537,8 +538,14 @@ Custom property | Description | Default
           file.processing = false;
           file.completed = true;
           this._updateFiles(file);
-          this._notifyFileUploadCompleted();
-          console.log("Done uploading file: " + file.name);
+
+          if(file.success){
+            this._notifyFileUploadCompleted();
+            console.log("Done uploading file: " + file.name);
+          } else {
+            console.log("Failed uploading file: " + file.name);
+          }
+
         }
        }.bind(this);
 
