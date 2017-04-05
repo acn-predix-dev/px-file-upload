@@ -503,7 +503,7 @@ Custom property | Description | Default
 
       formData.append(formDataName, file);
       formData.append("site-id", tenant);
-      formData.append("username", userDetails.userInfo.user_name);
+      formData.append("username", userDetails.userInfo.user_name); // added
       formData.append("name", file.name);
 
       var updateProgress = function(e) {
