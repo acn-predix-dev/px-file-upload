@@ -445,8 +445,12 @@ Custom property | Description | Default
       this.fire('px-file-upload-files-changed');
     },
 
-    _notifyFileUploadCompleted: function() {
-      this.fire('px-file-upload-file-completed')
+    _notifyFileUploadCompleted: function(fileType) {
+      if(fileType=="Pairing Solution"){
+        this.fire('pairing-file-upload-completed') //custom event
+      } else {
+        this.fire('px-file-upload-file-completed')  
+      }
     },
 
     _processFileByConfig: function() {
@@ -470,7 +474,7 @@ Custom property | Description | Default
 
           if (isValid) {
             file.processing = true;
-            this._uploadFile(file, config.url, config.formDataName, i);
+            this._uploadFile(file, config, config.formDataName, i);
           }
           else {
             file.failed = true;
@@ -491,19 +495,16 @@ Custom property | Description | Default
       return filename.toLowerCase().indexOf(keyword.toLowerCase()) > -1;
     },
 
-    _uploadFile: function(file, url, formDataName, index) {
+    _uploadFile: function(file, config, formDataName, index) {
       var last;
       var ini = Date.now();
 
       var xhr = new XMLHttpRequest();
       var formData = new FormData();
 
-      var userDetails = document.querySelector("px-login");
-      var tenant = userDetails.userInfo.tenant;
-
       formData.append(formDataName, file);
-      formData.append("site-id", tenant);
-      formData.append("username", userDetails.userInfo.user_name); // added
+      formData.append("site-id", config.tenant);
+      formData.append("username", config.user);
       formData.append("name", file.name);
 
       var updateProgress = function(e) {
@@ -540,7 +541,7 @@ Custom property | Description | Default
           this._updateFiles(file);
 
           if(file.success){
-            this._notifyFileUploadCompleted();
+            this._notifyFileUploadCompleted(config.name);
             console.log("Done uploading file: " + file.name);
           } else {
             console.log("Failed uploading file: " + file.name);
@@ -549,7 +550,7 @@ Custom property | Description | Default
         }
        }.bind(this);
 
-       xhr.open("post", url, true);
+       xhr.open("post", config.url, true);
        xhr.send(formData);
      },
 
